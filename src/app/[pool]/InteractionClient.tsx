@@ -1251,17 +1251,19 @@ function PoolLoadError({ message }: { message: string }) {
 function ChainlessPoolLink({ poolId }: { poolId: Address }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [choices, setChoices] = useState<number[] | null>(null);
+  const [choices, setChoices] = useState<{ chainIds: number[]; incomplete: boolean } | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setChoices(null);
     findPoolChain(config.chains.map((chain) => chain.id), (chainId) => probePool(chainId, poolId))
       .then((lookup) => {
         if (cancelled) return;
         if ("chainId" in lookup) {
           router.replace(poolHref(poolId, lookup.chainId));
         } else if ("choices" in lookup) {
-          setChoices(lookup.choices);
+          setChoices({ chainIds: lookup.choices, incomplete: lookup.incomplete });
         } else {
           setError(lookup.error === "missing"
             ? "No pool was found at this address on any supported network."
@@ -1269,7 +1271,7 @@ function ChainlessPoolLink({ poolId }: { poolId: Address }) {
         }
       });
     return () => { cancelled = true; };
-  }, [poolId, router]);
+  }, [poolId, router, attempt]);
 
   if (error) return <PoolLoadError message={error} />;
   if (choices) {
@@ -1279,13 +1281,20 @@ function ChainlessPoolLink({ poolId }: { poolId: Address }) {
           <h2 className="text-lg md:text-xl font-semibold mb-2 text-neutral-900 dark:text-white">
             Choose a network
           </h2>
-          <p className="text-neutral-600 dark:text-neutral-400">This address is a pool on more than one network.</p>
+          <p className="text-neutral-600 dark:text-neutral-400">
+            {choices.incomplete
+              ? "Some networks could not be checked, so this address may also be a pool there."
+              : "This address is a pool on more than one network."}
+          </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            {choices.map((chainId) => (
+            {choices.chainIds.map((chainId) => (
               <Button key={chainId} asChild variant="outline">
                 <Link href={poolHref(poolId, chainId)} replace>{getChainConfig(chainId)?.name ?? `Chain ${chainId}`}</Link>
               </Button>
             ))}
+            {choices.incomplete && (
+              <Button variant="outline" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
+            )}
           </div>
         </div>
       </div>

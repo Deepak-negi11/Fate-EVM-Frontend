@@ -41,12 +41,12 @@ describe("findPoolChain", () => {
 
   it("asks for a choice when the pool answers on several chains, in configured order", async () => {
     const both = probeOn({ [sepolia.id]: "found", [polygon.id]: "found" });
-    expect(await findPoolChain(CHAINS, both)).toEqual({ choices: [sepolia.id, polygon.id] });
+    expect(await findPoolChain(CHAINS, both)).toEqual({ choices: [sepolia.id, polygon.id], incomplete: false });
   });
 
-  it("uses a chain that has the pool even if another chain could not be reached", async () => {
+  it("asks for a choice instead of redirecting when another chain could not be checked", async () => {
     expect(await findPoolChain(CHAINS, probeOn({ [sepolia.id]: "error", [polygon.id]: "found" })))
-      .toEqual({ chainId: polygon.id });
+      .toEqual({ choices: [polygon.id], incomplete: true });
   });
 
   it("says missing only when every chain answered, unreachable otherwise", async () => {
