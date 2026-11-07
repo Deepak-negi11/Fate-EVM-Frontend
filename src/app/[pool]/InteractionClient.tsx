@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, Wrench, TrendingUp, TrendingDown } from 'lucide-react';
 import {
   useAccount,
-  useChainId,
   useWalletClient,
   useReadContracts,
   useWriteContract,
@@ -1251,16 +1250,18 @@ function PoolLoadError({ message }: { message: string }) {
 // A link without a chain (old links, the address search): find the chain the pool is on and put it in the URL.
 function ChainlessPoolLink({ poolId }: { poolId: Address }) {
   const router = useRouter();
-  const currentChainId = useChainId();
   const [error, setError] = useState<string | null>(null);
+  const [choices, setChoices] = useState<number[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    findPoolChain(config.chains.map((chain) => chain.id), currentChainId, (chainId) => probePool(chainId, poolId))
+    findPoolChain(config.chains.map((chain) => chain.id), (chainId) => probePool(chainId, poolId))
       .then((lookup) => {
         if (cancelled) return;
         if ("chainId" in lookup) {
           router.replace(poolHref(poolId, lookup.chainId));
+        } else if ("choices" in lookup) {
+          setChoices(lookup.choices);
         } else {
           setError(lookup.error === "missing"
             ? "No pool was found at this address on any supported network."
@@ -1268,9 +1269,28 @@ function ChainlessPoolLink({ poolId }: { poolId: Address }) {
         }
       });
     return () => { cancelled = true; };
-  }, [poolId, currentChainId, router]);
+  }, [poolId, router]);
 
   if (error) return <PoolLoadError message={error} />;
+  if (choices) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-900">
+        <div className="text-center">
+          <h2 className="text-lg md:text-xl font-semibold mb-2 text-neutral-900 dark:text-white">
+            Choose a network
+          </h2>
+          <p className="text-neutral-600 dark:text-neutral-400">This address is a pool on more than one network.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {choices.map((chainId) => (
+              <Button key={chainId} asChild variant="outline">
+                <Link href={poolHref(poolId, chainId)} replace>{getChainConfig(chainId)?.name ?? `Chain ${chainId}`}</Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-center h-screen bg-white dark:bg-black">
       <Loading size="xl" />

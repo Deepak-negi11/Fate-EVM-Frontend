@@ -7,7 +7,10 @@ import { getTransport } from "./rpcTransport";
 import { isChainSupported } from "./supportedChainFeed";
 
 export type PoolProbe = "found" | "missing" | "error";
-export type PoolChainLookup = { chainId: number } | { error: "missing" | "unreachable" };
+export type PoolChainLookup =
+  | { chainId: number }
+  | { choices: number[] }
+  | { error: "missing" | "unreachable" };
 
 export const poolHref = (poolId: string, chainId: number): string =>
   `/pool?id=${poolId}&chainId=${chainId}`;
@@ -36,16 +39,14 @@ export const probePool = async (chainId: number, poolId: Address): Promise<PoolP
   }
 };
 
-// For a link without a chain: the chain the pool is on. On several, the current chain wins, then chainIds order.
+// For a link without a chain: the one chain the pool is on, or every match for the user to pick from.
 export const findPoolChain = async (
   chainIds: readonly number[],
-  currentChainId: number | undefined,
   probe: (chainId: number) => Promise<PoolProbe>,
 ): Promise<PoolChainLookup> => {
   const results = await Promise.all(chainIds.map((chainId) => probe(chainId)));
   const found = chainIds.filter((_, i) => results[i] === "found");
-  if (found.length > 0) {
-    return { chainId: currentChainId !== undefined && found.includes(currentChainId) ? currentChainId : found[0] };
-  }
+  if (found.length === 1) return { chainId: found[0] };
+  if (found.length > 1) return { choices: found };
   return { error: results.includes("error") ? "unreachable" : "missing" };
 };

@@ -34,24 +34,23 @@ describe("findPoolChain", () => {
   it("sends the issue's link without a chain to the Polygon pool", async () => {
     const params = new URLSearchParams(`?id=${POOL}`);
     expect(resolvePoolChainId(params.get("chainId"))).toBeNull();
-    const found = await findPoolChain(CHAINS, sepolia.id, probeOn({ [polygon.id]: "found" }));
+    const found = await findPoolChain(CHAINS, probeOn({ [polygon.id]: "found" }));
     expect(found).toEqual({ chainId: polygon.id });
     expect(poolHref(POOL, polygon.id)).toBe(`/pool?id=${POOL}&chainId=137`);
   });
 
-  it("prefers the current chain when the pool is on several, then the configured order", async () => {
+  it("asks for a choice when the pool answers on several chains, in configured order", async () => {
     const both = probeOn({ [sepolia.id]: "found", [polygon.id]: "found" });
-    expect(await findPoolChain(CHAINS, polygon.id, both)).toEqual({ chainId: polygon.id });
-    expect(await findPoolChain(CHAINS, undefined, both)).toEqual({ chainId: sepolia.id });
+    expect(await findPoolChain(CHAINS, both)).toEqual({ choices: [sepolia.id, polygon.id] });
   });
 
   it("uses a chain that has the pool even if another chain could not be reached", async () => {
-    expect(await findPoolChain(CHAINS, undefined, probeOn({ [sepolia.id]: "error", [polygon.id]: "found" })))
+    expect(await findPoolChain(CHAINS, probeOn({ [sepolia.id]: "error", [polygon.id]: "found" })))
       .toEqual({ chainId: polygon.id });
   });
 
   it("says missing only when every chain answered, unreachable otherwise", async () => {
-    expect(await findPoolChain(CHAINS, undefined, probeOn({}))).toEqual({ error: "missing" });
-    expect(await findPoolChain(CHAINS, undefined, probeOn({ [polygon.id]: "error" }))).toEqual({ error: "unreachable" });
+    expect(await findPoolChain(CHAINS, probeOn({}))).toEqual({ error: "missing" });
+    expect(await findPoolChain(CHAINS, probeOn({ [polygon.id]: "error" }))).toEqual({ error: "unreachable" });
   });
 });
